@@ -31,7 +31,10 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ClerkProvider appearance={{ theme: shadcn }}>
+        <ClerkProvider
+          appearance={{ theme: shadcn }}
+          taskUrls={{ "choose-organization": "/session-tasks/choose-organization" }}
+        >
           <ThemeProvider>
             {children}
             <Toaster />

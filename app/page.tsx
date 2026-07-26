@@ -1,12 +1,13 @@
-import { UserButton } from "@clerk/nextjs"
+import { OrganizationSwitcher, UserButton } from "@clerk/nextjs"
 import { auth } from "@clerk/nextjs/server"
 
 export default async function Page() {
   await auth.protect()
 
   return (
-    <div className="flex min-h-svh items-center justify-center">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-4">
       <UserButton />
+      <OrganizationSwitcher />
     </div>
   )
 }
