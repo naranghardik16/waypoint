@@ -1,2 +1,5 @@
+# .claude/skills/* are symlinks into .agents/skills/*; excluding both makes
+# Railpack's package.json scan fail ("not found"), and including both makes
+# it collide copying the same file to two destinations. Exclude only the
+# symlink side and keep .agents/ (the real files) in the build context.
 .claude/
-.agents/
