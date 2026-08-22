@@ -11,6 +11,14 @@ Escape apostrophes and quotes in JSX text content — raw `'` and `"` trip the
 `&quot;` for quotes (e.g. `you&apos;re`, `doesn&apos;t`). This applies only to
 literal text between JSX tags, not to string attribute values or JS strings.
 
+# React Flow
+
+Do not rely on training data for React Flow (`@xyflow/react`) APIs, components, hooks,
+or usage patterns — the API has changed across versions and training data is likely
+stale or wrong. Before writing or changing any React Flow code, fetch
+https://reactflow.dev/llms.txt to find the relevant docs pages, then fetch those
+pages before implementing.
+
 # Database types
 
 Derive database types from the Drizzle schema — never hand-write custom or partial

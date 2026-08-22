@@ -1,34 +1,42 @@
 "use client"
 
-import { useCallback, useState, useSyncExternalStore } from "react"
+import { useCallback, useSyncExternalStore } from "react"
 import { useTheme } from "next-themes"
 import {
   addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
-  Background,
   Controls,
   ReactFlow,
+  useEdgesState,
+  useNodesState,
   ConnectionLineType,
   type ColorMode,
+  type Connection,
   type Edge,
-  type Node,
-  type OnConnect,
-  type OnEdgesChange,
-  type OnNodesChange,
+  NodeTypes,
 } from "@xyflow/react"
+
+import { StepNode } from "@/features/workflows/components/step-node"
+import type { StepNodeType } from "@/features/workflows/nodes/node-registry"
 
 import "@xyflow/react/dist/style.css"
 
-const initialNodes: Node[] = [
-  { id: "n1", position: { x: 0, y: 0 }, data: { label: "Node 1" } },
-  { id: "n2", position: { x: 0, y: 100 }, data: { label: "Node 2" } },
+const nodeTypes: NodeTypes = { step: StepNode }
+
+const initialNodes: StepNodeType[] = [
+  {
+    id: "start",
+    type: "step",
+    position: { x: 0, y: 0 },
+    data: { type: "start", kind: "trigger", title: "Start", values: {} },
+  },
 ]
 
-const initialEdges: Edge[] = [{ id: "n1-n2", source: "n1", target: "n2" }]
+const initialEdges: Edge[] = []
 
-const emptySubscribe = () => () => {}
+const emptySubscribe = () => () => { }
 
+// False during server render and hydration, true after mount. Keeps the
+// server and initial client render identical to avoid a hydration mismatch.
 function useMounted() {
   return useSyncExternalStore(
     emptySubscribe,
@@ -40,42 +48,34 @@ function useMounted() {
 export function Canvas() {
   const { resolvedTheme } = useTheme()
   const mounted = useMounted()
-  const colorMode = (mounted ? resolvedTheme : "dark") as ColorMode
-  const [nodes, setNodes] = useState<Node[]>(initialNodes)
-  const [edges, setEdges] = useState<Edge[]>(initialEdges)
+  const colorMode: ColorMode = mounted
+    ? (resolvedTheme as ColorMode) ?? "light"
+    : "light"
+  const [nodes, , onNodesChange] = useNodesState(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
-  const onNodesChange: OnNodesChange = useCallback(
-    (changes) => setNodes((n) => applyNodeChanges(changes, n)),
-    []
-  )
-
-  const onEdgesChange: OnEdgesChange = useCallback(
-    (changes) => setEdges((e) => applyEdgeChanges(changes, e)),
-    []
-  )
-
-  const onConnect: OnConnect = useCallback(
-    (params) => setEdges((e) => addEdge(params, e)),
-    []
+  const onConnect = useCallback(
+    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
+    [setEdges]
   )
 
   return (
     <div className="size-full">
       <ReactFlow
+        nodeTypes={nodeTypes}
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        fitView
         colorMode={colorMode}
+        fitView
         connectionLineType={ConnectionLineType.SmoothStep}
-        connectionLineStyle={{ stroke: "var(--border" }}
+        connectionLineStyle={{ stroke: "var(--border)" }}
         defaultEdgeOptions={{
           type: "smoothstep",
           style: { stroke: "var(--border)" },
         }}
-
         style={
           {
             "--xy-background-color": "var(--background)",
