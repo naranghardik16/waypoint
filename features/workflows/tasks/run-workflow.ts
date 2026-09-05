@@ -1,9 +1,14 @@
 import toposort from "toposort"
-import { logger, task } from "@trigger.dev/sdk"
+import { logger, metadata, task } from "@trigger.dev/sdk"
 import { browserbase, Stagehand } from "@browserbasehq/stagehand"
 import { nodeExecutors } from "@/features/workflows/nodes/node-executors"
 import { getWorkflow } from "@/features/workflows/data"
 import { interpolate, type NodeOutputs } from "@/features/workflows/lib/interpolate"
+
+export type RunStep = {
+  id: string
+  status: "pending" | "running" | "done" | "failed"
+}
 
 // The Trigger.dev task the Run button fires. It loads the saved graph, works out
 // what order the nodes should run in, and walks them. For now each node just
@@ -29,6 +34,9 @@ export const runWorkflowTask = task({
       .filter((id) => connected.has(id))
 
     logger.log(`Running workflow ${workflow.name}`, { steps: order.length })
+
+    const steps: RunStep[] = order.map((id) => ({ id, status: "pending" }))
+    metadata.set("steps", steps)
 
     // The run owns one Browserbase session, opened lazily on the first browser step
     // and reused by every later one, so the recording spans the whole flow. The
@@ -57,25 +65,40 @@ export const runWorkflowTask = task({
     const outputs: NodeOutputs = {}
 
     try {
-      for (const id of order) {
-        const node = byId.get(id)!
+      for (const step of steps) {
+        const node = byId.get(step.id)!
         logger.log(`Running step: ${node.data.title}`)
-        const executor = nodeExecutors[node.data.type]
-        if (executor) {
-          const values = Object.fromEntries(
-            Object.entries(node.data.values).map(([key, value]) => [
-              key,
-              interpolate(value, outputs),
-            ])
-          )
-          outputs[id] = await executor({ values, getStagehand })
+
+        step.status = "running"
+        metadata.set("steps", steps)
+        await metadata.flush()
+
+        try {
+          const executor = nodeExecutors[node.data.type]
+          if (executor) {
+            const values = Object.fromEntries(
+              Object.entries(node.data.values).map(([key, value]) => [
+                key,
+                interpolate(value, outputs),
+              ])
+            )
+            outputs[step.id] = await executor({ values, getStagehand })
+          }
+        } catch (error) {
+          step.status = "failed"
+          metadata.set("steps", steps)
+          await metadata.flush()
+          throw error
         }
+
+        step.status = "done"
+        metadata.set("steps", steps)
       }
     } finally {
       await stagehand?.close()
       await browser?.close()
     }
 
-    return { steps: order.length }
+    return { steps }
   },
 })
