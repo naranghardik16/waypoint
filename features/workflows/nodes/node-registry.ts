@@ -8,6 +8,7 @@ export type NodeField = {
   key: string
   label: string
   placeholder?: string
+  // Render as a multi-line textarea instead of a single-line input.
   multiline?: boolean
   required?: boolean
 }
@@ -55,3 +56,7 @@ export type StepNodeData = {
 }
 
 export type StepNodeType = Node<StepNodeData, "step">
+
+export type ActionNodeType = {
+  [K in NodeType]: (typeof nodeRegistry)[K]["kind"] extends "action" ? K : never
+}[NodeType]

@@ -19,4 +19,13 @@ export default defineConfig({
     },
   },
   dirs: ["features"],
+  build: {
+    // Stagehand locates its bundled browser extension asset via import.meta.url
+    // relative to its own package folder. If esbuild inlines it into the task
+    // bundle, that path resolves inside .trigger's build output instead of
+    // node_modules, so the extension zip can't be found and Browserbase session
+    // creation fails with "Failed to upload the Stagehand extension". Keeping it
+    // external makes Trigger.dev install it as a real dependency instead.
+    external: ["@browserbasehq/stagehand"],
+  },
 });
