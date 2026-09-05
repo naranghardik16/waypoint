@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import { useReactFlow, useStore } from "@xyflow/react"
 import { MoreHorizontal, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
 import { deleteWorkflowAction, runWorkflowAction } from "@/features/workflows/actions"
+import { useUpstreamConnections, type UpstreamConnection } from "@/features/workflows/hooks/use-upstream-connections"
 import { validateGraph } from "@/features/workflows/lib/validate-graph"
 import {
   nodeRegistry,
@@ -93,18 +94,24 @@ function Field({
   field,
   value,
   onChange,
+  onFocus,
+  ref,
 }: {
   field: NodeField
   value: string
   onChange: (value: string) => void
+  onFocus?: () => void
+  ref?: (el: HTMLInputElement | HTMLTextAreaElement | null) => void
 }) {
   if (field.multiline) {
     return (
       <Textarea
         id={field.key}
+        ref={ref}
         value={value}
         placeholder={field.placeholder}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
       />
     )
   }
@@ -112,16 +119,44 @@ function Field({
   return (
     <Input
       id={field.key}
+      ref={ref}
       value={value}
       placeholder={field.placeholder}
       onChange={(e) => onChange(e.target.value)}
+      onFocus={onFocus}
     />
   )
 }
 
+// One upstream output, shown as a small pill with the source node's icon.
+// Clicking it inserts its token into the field currently being edited.
+function ConnectionChip({
+  connection,
+  onClick,
+}: {
+  connection: UpstreamConnection
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-1 text-xs hover:bg-accent"
+    >
+      <NodeIcon type={connection.sourceType} className="size-4" />
+      {connection.label}
+    </button>
+  )
+}
+
 // The Editor tab: one input per field on the selected node, or an empty state.
+// Keyed by node id at the call site, so field-focus tracking resets whenever
+// the selection changes.
 function Inspector({ node }: { node: StepNodeType | undefined }) {
   const { updateNodeData } = useReactFlow<StepNodeType>()
+  const connections = useUpstreamConnections(node)
+  const fieldRefs = useRef(new Map<string, HTMLInputElement | HTMLTextAreaElement>())
+  const [lastFieldKey, setLastFieldKey] = useState<string | undefined>(undefined)
 
   if (!node) {
     return (
@@ -133,6 +168,27 @@ function Inspector({ node }: { node: StepNodeType | undefined }) {
 
   const { type, title, values } = node.data
   const def: NodeDefinition = nodeRegistry[type]
+
+  // Inserts a token at the cursor of whichever field was last focused, or the
+  // first field if none has been touched yet.
+  const insertToken = (token: string) => {
+    const key = lastFieldKey ?? def.fields[0]?.key
+    if (!key) return
+
+    const el = fieldRefs.current.get(key)
+    const value = values[key] ?? ""
+    const start = el?.selectionStart ?? value.length
+    const end = el?.selectionEnd ?? value.length
+    const nextValue = value.slice(0, start) + token + value.slice(end)
+
+    updateNodeData(node.id, { values: { ...values, [key]: nextValue } })
+
+    const cursor = start + token.length
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(cursor, cursor)
+    })
+  }
 
   return (
     <Section title={title} icon={<NodeIcon type={type} />}>
@@ -154,9 +210,28 @@ function Inspector({ node }: { node: StepNodeType | undefined }) {
                     values: { ...values, [field.key]: value },
                   })
                 }}
+                onFocus={() => setLastFieldKey(field.key)}
+                ref={(el) => {
+                  if (el) fieldRefs.current.set(field.key, el)
+                  else fieldRefs.current.delete(field.key)
+                }}
               />
             </div>
           ))
+        )}
+        {connections.length > 0 && def.fields.length > 0 && (
+          <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+            <Label className="text-xs">Connections</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {connections.map((connection) => (
+                <ConnectionChip
+                  key={connection.token}
+                  connection={connection}
+                  onClick={() => insertToken(connection.token)}
+                />
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </Section>
@@ -371,7 +446,7 @@ export function RightSidebar({ workflowId }: { workflowId: string }) {
           <Palette />
         </TabsContent>
         <TabsContent value="editor" className="flex min-h-0 flex-col">
-          <Inspector node={selected} />
+          <Inspector key={selected?.id ?? "none"} node={selected} />
         </TabsContent>
       </Tabs>
     </ResizablePanel>

@@ -3,6 +3,7 @@ import { logger, task } from "@trigger.dev/sdk"
 import { browserbase, Stagehand } from "@browserbasehq/stagehand"
 import { nodeExecutors } from "@/features/workflows/nodes/node-executors"
 import { getWorkflow } from "@/features/workflows/data"
+import { interpolate, type NodeOutputs } from "@/features/workflows/lib/interpolate"
 
 // The Trigger.dev task the Run button fires. It loads the saved graph, works out
 // what order the nodes should run in, and walks them. For now each node just
@@ -53,14 +54,22 @@ export const runWorkflowTask = task({
       return stagehand
     }
 
+    const outputs: NodeOutputs = {}
+
     try {
       for (const id of order) {
         const node = byId.get(id)!
         logger.log(`Running step: ${node.data.title}`)
-        // TODO: actually execute the node instead of just logging it, and report
-        // its progress so the UI can watch the run live.
         const executor = nodeExecutors[node.data.type]
-        if (executor) await executor({ values: node.data.values, getStagehand })
+        if (executor) {
+          const values = Object.fromEntries(
+            Object.entries(node.data.values).map(([key, value]) => [
+              key,
+              interpolate(value, outputs),
+            ])
+          )
+          outputs[id] = await executor({ values, getStagehand })
+        }
       }
     } finally {
       await stagehand?.close()
