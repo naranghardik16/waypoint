@@ -1,5 +1,6 @@
 import { memo } from "react"
 import { Handle, Position, type NodeProps } from "@xyflow/react"
+import { CircleCheck } from "lucide-react"
 
 import {
   nodeRegistry,
@@ -22,6 +23,7 @@ function StepNodeComponent({ id, data, selected }: NodeProps<StepNodeType>) {
   const step = steps.find((s) => s.id === id)
   const isRunning = isLive && step?.status === "running"
   const isFailed = step?.status === "failed"
+  const isDone = step?.status === "done"
 
   return (
     <div
@@ -29,7 +31,8 @@ function StepNodeComponent({ id, data, selected }: NodeProps<StepNodeType>) {
         "min-w-50 max-w-80 rounded-(--radius) border-2 border-border bg-card text-card-foreground",
         selected && "ring-2 ring-ring ring-offset-2 ring-offset-background",
         isRunning && "border-blue-500",
-        isFailed && "border-destructive"
+        isFailed && "border-destructive",
+        isDone && "border-emerald-500"
       )}
     >
       {hasTarget && (
@@ -48,7 +51,13 @@ function StepNodeComponent({ id, data, selected }: NodeProps<StepNodeType>) {
             def.accent
           )}
         >
-          {isRunning ? <Spinner className="size-4" /> : <Icon className="size-4" />}
+          {isRunning ? (
+            <Spinner className="size-4" />
+          ) : isDone ? (
+            <CircleCheck className="size-4" />
+          ) : (
+            <Icon className="size-4" />
+          )}
         </div>
         <span className="text-sm font-semibold">{title}</span>
       </div>

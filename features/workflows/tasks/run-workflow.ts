@@ -53,7 +53,6 @@ export const runWorkflowTask = task({
         browser,
         model: {
           modelName: "google/gemini-2.5-flash",
-          apiKey: process.env.BROWSERBASE_API_KEY!,
         },
         // Stagehand logging can pull in backends that fail inside trigger.dev's
         // bundled worker output — turn it off for this minimal environment.
@@ -93,6 +92,7 @@ export const runWorkflowTask = task({
 
         step.status = "done"
         metadata.set("steps", steps)
+        await metadata.flush()
       }
     } finally {
       await stagehand?.close()
