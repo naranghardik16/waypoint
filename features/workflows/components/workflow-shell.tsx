@@ -8,6 +8,7 @@ import {
 
 import { RightSidebar } from "./right-sidebar"
 import { Canvas } from "./canvas"
+import { ConsolePanel } from "./console-panel"
 
 export function WorkflowShell({ workflowId }: { workflowId: string }) {
   return (
@@ -19,9 +20,7 @@ export function WorkflowShell({ workflowId }: { workflowId: string }) {
           </ResizablePanel>
           <ResizableHandle />
           <ResizablePanel defaultSize="8rem" minSize="6rem">
-            <div className="flex size-full items-center justify-center">
-              <span className="text-sm text-muted-foreground">Logs</span>
-            </div>
+            <ConsolePanel />
           </ResizablePanel>
         </ResizablePanelGroup>
       </ResizablePanel>

@@ -34,6 +34,10 @@ export function WorkflowRunsProvider({
   )
 }
 
+function stepsOf(run: WorkflowRun): RunStep[] {
+  return run.output?.steps ?? (run.metadata?.steps as RunStep[] | undefined) ?? []
+}
+
 export function useLatestRunSteps(): { steps: RunStep[]; isLive: boolean } {
   const runs = useContext(WorkflowRunsContext)
   if (runs === undefined) {
@@ -48,8 +52,37 @@ export function useLatestRunSteps(): { steps: RunStep[]; isLive: boolean } {
 
     if (!latest) return { steps: [], isLive: false }
 
-    const steps = latest.output?.steps ?? (latest.metadata?.steps as RunStep[] | undefined) ?? []
-
-    return { steps, isLive: latest.isQueued || latest.isExecuting }
+    return { steps: stepsOf(latest), isLive: latest.isQueued || latest.isExecuting }
   }, [runs])
+}
+
+export type WorkflowRunWithSteps = {
+  id: string
+  createdAt: WorkflowRun["createdAt"]
+  status: WorkflowRun["status"]
+  isLive: boolean
+  steps: RunStep[]
+}
+
+// Every run for this workflow, newest first, with its steps normalized out of
+// whichever of output/metadata currently holds them — for a run history panel.
+export function useWorkflowRuns(): WorkflowRunWithSteps[] {
+  const runs = useContext(WorkflowRunsContext)
+  if (runs === undefined) {
+    throw new Error("useWorkflowRuns must be used within a WorkflowRunsProvider")
+  }
+
+  return useMemo(
+    () =>
+      [...runs]
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .map((run) => ({
+          id: run.id,
+          createdAt: run.createdAt,
+          status: run.status,
+          isLive: run.isQueued || run.isExecuting,
+          steps: stepsOf(run),
+        })),
+    [runs]
+  )
 }

@@ -2,12 +2,19 @@ import toposort from "toposort"
 import { logger, metadata, task } from "@trigger.dev/sdk"
 import { browserbase, Stagehand } from "@browserbasehq/stagehand"
 import { nodeExecutors } from "@/features/workflows/nodes/node-executors"
+import type { NodeType } from "@/features/workflows/nodes/node-registry"
 import { getWorkflow } from "@/features/workflows/data"
 import { interpolate, type NodeOutputs } from "@/features/workflows/lib/interpolate"
 
 export type RunStep = {
   id: string
+  nodeType: NodeType
+  title: string
   status: "pending" | "running" | "done" | "failed"
+  output?: unknown
+  error?: string
+  startedAt?: number
+  durationMs?: number
 }
 
 // The Trigger.dev task the Run button fires. It loads the saved graph, works out
@@ -35,8 +42,14 @@ export const runWorkflowTask = task({
 
     logger.log(`Running workflow ${workflow.name}`, { steps: order.length })
 
-    const steps: RunStep[] = order.map((id) => ({ id, status: "pending" }))
-    metadata.set("steps", steps)
+    const steps: RunStep[] = order.map((id) => {
+      const node = byId.get(id)!
+      return { id, nodeType: node.data.type, title: node.data.title, status: "pending" }
+    })
+    // metadata.set only accepts JSON-serializable values; RunStep.output is
+    // typed unknown because executors can return anything JSON-shaped.
+    const syncSteps = () => metadata.set("steps", steps as unknown as Parameters<typeof metadata.set>[1])
+    syncSteps()
 
     // The run owns one Browserbase session, opened lazily on the first browser step
     // and reused by every later one, so the recording spans the whole flow. The
@@ -69,7 +82,8 @@ export const runWorkflowTask = task({
         logger.log(`Running step: ${node.data.title}`)
 
         step.status = "running"
-        metadata.set("steps", steps)
+        step.startedAt = Date.now()
+        syncSteps()
         await metadata.flush()
 
         try {
@@ -82,16 +96,20 @@ export const runWorkflowTask = task({
               ])
             )
             outputs[step.id] = await executor({ values, getStagehand })
+            step.output = outputs[step.id]
           }
         } catch (error) {
           step.status = "failed"
-          metadata.set("steps", steps)
+          step.error = error instanceof Error ? error.message : String(error)
+          step.durationMs = Date.now() - step.startedAt!
+          syncSteps()
           await metadata.flush()
           throw error
         }
 
         step.status = "done"
-        metadata.set("steps", steps)
+        step.durationMs = Date.now() - step.startedAt!
+        syncSteps()
         await metadata.flush()
       }
     } finally {
