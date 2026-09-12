@@ -1,7 +1,7 @@
 "use client"
 
 import prettyMs from "pretty-ms"
-import { CircleAlert, CircleCheck } from "lucide-react"
+import { CircleAlert, CircleCheck, Film } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -10,7 +10,12 @@ import { NodeIcon } from "@/features/workflows/components/node-icon"
 import type { WorkflowRunWithSteps } from "@/features/workflows/components/workflow-runs-provider"
 import type { RunStep } from "@/features/workflows/tasks/run-workflow"
 
-export type SelectedStep = { runId: string; stepId: string } | null
+// A selection is either one step within a run, or the run's replay as a
+// whole — never both at once.
+export type Selection =
+  | { type: "step"; runId: string; stepId: string }
+  | { type: "replay"; runId: string }
+  | null
 
 // Maps trigger.dev's run status strings to a Badge variant and display label.
 const runStatus: Record<WorkflowRunWithSteps["status"], { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -75,17 +80,46 @@ function StepRow({
   )
 }
 
+// The row standing in for the whole run's recording, not any one step. Shown
+// once a run has finished and produced a Browserbase session id.
+function ReplayRow({
+  isSelected,
+  onSelect,
+}: {
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-center gap-2.5 rounded-(--radius) px-2.5 py-1.5 text-left hover:bg-accent",
+        isSelected && "bg-accent"
+      )}
+    >
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted">
+        <Film className="size-3.5 text-muted-foreground" />
+      </span>
+      <span className="flex-1 truncate text-sm font-medium">Replay</span>
+    </button>
+  )
+}
+
 // One run: a header with when it ran and its overall status, then its steps.
 function RunGroup({
   run,
   selected,
   onSelectStep,
+  onSelectReplay,
 }: {
   run: WorkflowRunWithSteps
-  selected: SelectedStep
+  selected: Selection
   onSelectStep: (runId: string, stepId: string) => void
+  onSelectReplay: (runId: string) => void
 }) {
   const status = runStatus[run.status]
+  const hasReplay = run.browserbaseSessionId !== undefined && !run.isLive
 
   return (
     <div className="flex flex-col gap-1 border-b border-border py-2 last:border-b-0">
@@ -100,10 +134,20 @@ function RunGroup({
           <StepRow
             key={step.id}
             step={step}
-            isSelected={selected?.runId === run.id && selected?.stepId === step.id}
+            isSelected={
+              selected?.type === "step" &&
+              selected.runId === run.id &&
+              selected.stepId === step.id
+            }
             onSelect={() => onSelectStep(run.id, step.id)}
           />
         ))}
+        {hasReplay && (
+          <ReplayRow
+            isSelected={selected?.type === "replay" && selected.runId === run.id}
+            onSelect={() => onSelectReplay(run.id)}
+          />
+        )}
       </div>
     </div>
   )
@@ -114,10 +158,12 @@ export function LogsPanel({
   runs,
   selected,
   onSelectStep,
+  onSelectReplay,
 }: {
   runs: WorkflowRunWithSteps[]
-  selected: SelectedStep
+  selected: Selection
   onSelectStep: (runId: string, stepId: string) => void
+  onSelectReplay: (runId: string) => void
 }) {
   if (runs.length === 0) {
     return (
@@ -130,7 +176,13 @@ export function LogsPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
       {runs.map((run) => (
-        <RunGroup key={run.id} run={run} selected={selected} onSelectStep={onSelectStep} />
+        <RunGroup
+          key={run.id}
+          run={run}
+          selected={selected}
+          onSelectStep={onSelectStep}
+          onSelectReplay={onSelectReplay}
+        />
       ))}
     </div>
   )
