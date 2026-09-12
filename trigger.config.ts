@@ -2,7 +2,11 @@ import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
   project: "proj_jtvymjovpmuwlowlmwsg",
-  runtime: "node",
+  // Stagehand v4's CDP client calls the native WebSocket global directly, which
+  // only exists on Node 22+ (Stagehand's package.json requires node >=22.18.0).
+  // Trigger.dev's default "node" runtime is Node 21.7.3, so runs fail with
+  // "WebSocket is not defined" when opening a Browserbase session.
+  runtime: "node-24",
   logLevel: "log",
   // The max compute seconds a task is allowed to run. If the task run exceeds this duration, it will be stopped.
   // You can override this on an individual task.
