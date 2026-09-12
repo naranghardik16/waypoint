@@ -63,6 +63,17 @@ export function useLatestRunSteps(): { steps: RunStep[]; isLive: boolean } {
   }, [runs])
 }
 
+// The id of the currently live run, if any — at most one run is live for a
+// workflow at a time, so the Run/Stop toggle only needs the one id.
+export function useLiveRunId(): string | undefined {
+  const runs = useContext(WorkflowRunsContext)
+  if (runs === undefined) {
+    throw new Error("useLiveRunId must be used within a WorkflowRunsProvider")
+  }
+
+  return runs.find((run) => run.isQueued || run.isExecuting)?.id
+}
+
 export type WorkflowRunWithSteps = {
   id: string
   createdAt: WorkflowRun["createdAt"]
