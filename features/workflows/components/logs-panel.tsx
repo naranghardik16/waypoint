@@ -1,13 +1,14 @@
 "use client"
 
 import prettyMs from "pretty-ms"
-import { CircleAlert, CircleCheck, Film } from "lucide-react"
+import { CircleAlert, CircleCheck, Film, Lock } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 import { NodeIcon } from "@/features/workflows/components/node-icon"
 import type { WorkflowRunWithSteps } from "@/features/workflows/components/workflow-runs-provider"
+import { useProPlan } from "@/features/workflows/hooks/use-pro-plan"
 import type { RunStep } from "@/features/workflows/tasks/run-workflow"
 
 // A selection is either one step within a run, or the run's replay as a
@@ -89,10 +90,12 @@ function ReplayRow({
   isSelected: boolean
   onSelect: () => void
 }) {
+  const { isPro, upgrade } = useProPlan()
+
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={isPro ? onSelect : upgrade}
       className={cn(
         "flex w-full items-center gap-2.5 rounded-(--radius) px-2.5 py-1.5 text-left hover:bg-accent",
         isSelected && "bg-accent"
@@ -101,7 +104,10 @@ function ReplayRow({
       <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted">
         <Film className="size-3.5 text-muted-foreground" />
       </span>
-      <span className="flex-1 truncate text-sm font-medium">Replay</span>
+      <span className={cn("flex-1 truncate text-sm font-medium", !isPro && "text-muted-foreground")}>
+        Replay
+      </span>
+      {!isPro && <Lock className="size-3.5 shrink-0 text-muted-foreground" />}
     </button>
   )
 }

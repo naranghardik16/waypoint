@@ -9,9 +9,13 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
-  const { userId, orgId } = await auth()
+  const { userId, orgId, has } = await auth()
   if (!userId || !orgId) {
     return new Response("Unauthorized", { status: 401 })
+  }
+
+  if (!has({ plan: "pro" })) {
+    return new Response("Pro plan required", { status: 403 })
   }
 
   const { sessionId } = await params
