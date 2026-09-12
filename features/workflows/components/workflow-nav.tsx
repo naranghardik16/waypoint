@@ -22,6 +22,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import type { createWorkflowAction } from "@/features/workflows/actions"
+import { useProPlan } from "@/features/workflows/hooks/use-pro-plan"
 import { generateSlug } from "@/features/workflows/lib/generate-slug"
 import type { Workflow } from "@/lib/db/schema"
 
@@ -37,8 +38,16 @@ export function WorkflowNav({
   const { state } = useSidebar()
   const [isPending, startTransition] = useTransition()
   const pathname = usePathname()
+  const { isPro, upgrade } = useProPlan()
 
+  // Creating a workflow requires the pro plan — nudge non-pro orgs to
+  // upgrade instead of calling the (also gated) server action.
   function handleCreateWorkflow() {
+    if (!isPro) {
+      upgrade()
+      return
+    }
+
     startTransition(() => {
       createWorkflowAction(generateSlug())
     })
