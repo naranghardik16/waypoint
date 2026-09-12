@@ -38,6 +38,13 @@ function stepsOf(run: WorkflowRun): RunStep[] {
   return run.output?.steps ?? (run.metadata?.steps as RunStep[] | undefined) ?? []
 }
 
+// The Browserbase session recording lags the session close, so the id only
+// shows up once the run has finished and produced its final output — never
+// read it from live metadata.
+function browserbaseSessionIdOf(run: WorkflowRun): string | undefined {
+  return run.output?.browserbaseSessionId
+}
+
 export function useLatestRunSteps(): { steps: RunStep[]; isLive: boolean } {
   const runs = useContext(WorkflowRunsContext)
   if (runs === undefined) {
@@ -62,6 +69,7 @@ export type WorkflowRunWithSteps = {
   status: WorkflowRun["status"]
   isLive: boolean
   steps: RunStep[]
+  browserbaseSessionId?: string
 }
 
 // Every run for this workflow, newest first, with its steps normalized out of
@@ -82,6 +90,7 @@ export function useWorkflowRuns(): WorkflowRunWithSteps[] {
           status: run.status,
           isLive: run.isQueued || run.isExecuting,
           steps: stepsOf(run),
+          browserbaseSessionId: browserbaseSessionIdOf(run),
         })),
     [runs]
   )

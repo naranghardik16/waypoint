@@ -57,11 +57,13 @@ export const runWorkflowTask = task({
     // separate provider key is needed.
     let browser: Awaited<ReturnType<typeof browserbase.launch>> | undefined
     let stagehand: Stagehand | undefined
+    let browserbaseSessionId: string | undefined
     const getStagehand = async () => {
       if (stagehand) return stagehand
       browser = await browserbase.launch({
         apiKey: process.env.BROWSERBASE_API_KEY!,
       })
+      browserbaseSessionId = browser.sessionId
       stagehand = await Stagehand.create({
         browser,
         model: {
@@ -117,6 +119,6 @@ export const runWorkflowTask = task({
       await browser?.close()
     }
 
-    return { steps }
+    return { steps, browserbaseSessionId }
   },
 })
