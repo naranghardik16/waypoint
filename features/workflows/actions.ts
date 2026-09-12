@@ -55,10 +55,17 @@ export async function runWorkflowAction({
   id: string
   graph: WorkflowGraph
 }) {
-  const { orgId } = await auth()
+  const { orgId, has } = await auth()
 
   if (!orgId) {
     throw new Error("No active organization")
+  }
+
+  // The Agent node is premium — a non-pro org can't run a workflow that uses
+  // one, even though it can still run everything else.
+  const hasAgentNode = graph.nodes.some((node) => node.data.type === "agent")
+  if (hasAgentNode && !has({ plan: "pro" })) {
+    throw new Error("Pro plan required to run a workflow with an Agent node")
   }
 
   await saveWorkflowGraph({ orgId, id, graph })
