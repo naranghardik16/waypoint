@@ -382,7 +382,7 @@ function RunButton({ workflowId }: { workflowId: string }) {
     return (
       <Button
         size="sm"
-        variant="secondary"
+        variant="destructive"
         disabled={isPending}
         onClick={() => {
           startTransition(async () => {
