@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react"
 import { useReactFlow, useStore } from "@xyflow/react"
-import { MoreHorizontal, Play, Trash2 } from "lucide-react"
+import { Lock, MoreHorizontal, Play, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
 import { deleteWorkflowAction, runWorkflowAction } from "@/features/workflows/actions"
+import { useProPlan } from "@/features/workflows/hooks/use-pro-plan"
 import { useUpstreamConnections, type UpstreamConnection } from "@/features/workflows/hooks/use-upstream-connections"
 import { validateGraph } from "@/features/workflows/lib/validate-graph"
 import {
@@ -234,6 +235,10 @@ const sections: { kind: StepNodeKind; label: string }[] = [
 // Every node type from the registry, filtered into the groups below.
 const definitions = Object.values(nodeRegistry)
 
+// Node types gated behind the "pro" plan — locked in the toolbar for
+// non-pro orgs, clicking sends them to upgrade instead of adding the node.
+const PREMIUM_NODE_TYPES = new Set<NodeType>(["agent"])
+
 // The Toolbar tab: a button per node type that adds it to the canvas.
 function Palette() {
   // The shared React Flow store (lifted to a provider above the canvas and this
@@ -242,6 +247,7 @@ function Palette() {
   // The pane's measured size, used to find the center of the current view.
   const width = useStore((s) => s.width)
   const height = useStore((s) => s.height)
+  const { isPro, upgrade } = useProPlan()
 
   const add = (type: NodeType) => {
     const def = nodeRegistry[type]
@@ -294,17 +300,25 @@ function Palette() {
             <AccordionContent className="flex flex-col gap-0.5">
               {definitions
                 .filter((def) => def.kind === section.kind)
-                .map((def) => (
-                  <Button
-                    key={def.type}
-                    variant="ghost"
-                    onClick={() => add(def.type as NodeType)}
-                    className="justify-start gap-2.5 px-1.5 text-xs"
-                  >
-                    <NodeIcon type={def.type as NodeType} />
-                    {def.label}
-                  </Button>
-                ))}
+                .map((def) => {
+                  const isLocked = PREMIUM_NODE_TYPES.has(def.type as NodeType) && !isPro
+
+                  return (
+                    <Button
+                      key={def.type}
+                      variant="ghost"
+                      onClick={() =>
+                        isLocked ? upgrade() : add(def.type as NodeType)
+                      }
+                      className="justify-start gap-2.5 px-1.5 text-xs data-locked:text-muted-foreground"
+                      data-locked={isLocked || undefined}
+                    >
+                      <NodeIcon type={def.type as NodeType} />
+                      {def.label}
+                      {isLocked && <Lock className="ml-auto size-3.5 text-muted-foreground" />}
+                    </Button>
+                  )
+                })}
             </AccordionContent>
           </AccordionItem>
         ))}
